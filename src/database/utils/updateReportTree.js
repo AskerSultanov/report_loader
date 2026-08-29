@@ -1,6 +1,9 @@
-var updateReportsTree = async (collection, userId, years, session) => {
-  var sessionOpt = session ? { session } : {};
-  var result = await collection.updateOne({ userId }, { $set: { years } }, { ...sessionOpt });
+import { reportTreeModel } from "../models/index.js";
+
+var updateReportsTree = async (userId, years, session) => {
+  var sessionOptions = session ? { session } : {};
+
+  var result = await reportTreeModel.updateOne({ userId }, { $set: { years: years } }, { ...sessionOptions });
 
   return result.modifiedCount;
 };

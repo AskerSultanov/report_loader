@@ -1,7 +1,11 @@
-var getReportsTree = async (collection, userId, session) => {
-  var { years } = await collection.findOne({ userId }, { session: session });
+import { reportTreeModel } from "../models/index.js";
 
-  return { reportTree: years };
+var getReportsTree = async (userId, session) => {
+  var sessionOpt = session ? { session: session } : {};
+
+  var data = await reportTreeModel.findOne({ userId }, null, { ...sessionOpt });
+
+  return { reportTree: data.years };
 };
 
 export default getReportsTree;

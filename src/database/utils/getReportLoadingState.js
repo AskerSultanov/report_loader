@@ -1,6 +1,8 @@
-var getReportLoadingState = async (collection, userId, session) => {
+import { reportLoadingStateModel } from "../models/index.js";
+
+var getReportLoadingState = async (userId, session) => {
   var sessionOptions = session ? { session: session } : {};
-  var doc = await collection.findOne({ userId }, { ...sessionOptions });
+  var doc = await reportLoadingStateModel.findOne({ userId }, null, { ...sessionOptions });
   return doc;
 };
 

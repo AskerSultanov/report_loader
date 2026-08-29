@@ -1,3 +1,5 @@
-var resetAbandonedReports = async (collection, userId) => await collection.updateOne({ userId }, { $set: { abandonedReports: [] } });
+import { reportLoadingStateModel } from "../models/index.js";
+
+var resetAbandonedReports = async (userId) => await reportLoadingStateModel.updateOne({ userId }, { $set: { abandonedReports: [] } });
 
 export default resetAbandonedReports;

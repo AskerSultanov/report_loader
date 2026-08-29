@@ -1,4 +1,6 @@
-var updateReportLoadingDelayStatus = async (collection, userId, isReportLoadingDelayed) =>
-  await collection.updateOne({ userId }, { $set: { isReportLoadingDelayed } });
+import { reportLoadingStateModel } from "../models/index.js";
+
+var updateReportLoadingDelayStatus = async (userId, isReportLoadingDelayed) =>
+  await reportLoadingStateModel.updateOne({ userId }, { $set: { isReportLoadingDelayed } });
 
 export default updateReportLoadingDelayStatus;

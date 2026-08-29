@@ -5,16 +5,19 @@ var loadingStopReason = "";
 var statusOfReportLoadingStop = false;
 
 var resumeReportLoading = async (req, res) => {
+  var { userId } = req.body;
+
   var user = await dbUtils.getReportLoadingState(userId);
 
+  res.sendStatus(202);
+
   if (!user.isReportLoadingIsStopped) {
-    return res.sendStatus(202);
+    return;
   }
 
-  res.sendStatus(202);
   await dbUtils.updateReportLoadingStoppedStatus(userId, statusOfReportLoadingStop, loadingStopReason);
 
-  loader(userId);
+  await loader(userId);
 };
 
 export default resumeReportLoading;

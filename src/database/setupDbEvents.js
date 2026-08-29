@@ -1,87 +1,71 @@
-import { MongoClient } from "mongodb";
-import { databaseEmitter, serverEmitter } from "../customEvent/index.js";
+import { serverEmitter, databaseEmitter } from "../customEvent/index.js";
 
 var timerId = null;
 var eventsConfigured = false;
 var dbReconnectionAttempts = 1;
-var NEXT_CONNECTION_MS = 30_000;
+var NEXT_CONNECTION_MS = 2_000;
 var dbConnectionRestored = false;
-var isFailedAfterFirstSuccessConnection = true;
 
-var setupDbEvents = (dbClient) => {
+var kmsProviders = { local: { key: process.env.MONGO_LOCAL_MASTER_KEY } };
+var extraOptions = { cryptSharedLibPath: process.env.MONGO_CRYPT_SHARED_PATH, cryptSharedLibRequired: true };
+
+var autoEncryption = { kmsProviders, extraOptions, keyVaultNamespace: process.env.KEY_VAULT_NAME_SPACE, bypassAutoEncryption: true };
+var options = { autoEncryption, connectTimeoutMS: 5000, ...JSON.parse(process.env.MONGO_AUTH_OPTIONS) };
+
+var setupDbEvents = async (dbInstance) => {
   if (eventsConfigured) {
     return;
   }
 
   eventsConfigured = true;
 
-  console.log("connection to mongodb...\n");
-
-  dbClient.on("error", (e) => {
-    console.log("mongodb connection error: ", { name: e.name, msg: e.message });
+  dbInstance.connection.on("error", (e) => {
+    dbInstance.disconnect();
   });
 
-  dbClient.on("serverHeartbeatFailed", async (e) => {
-    if (!timerId) {
-      databaseEmitter.emit("connection_error");
-    }
-  });
-
-  dbClient.on("serverHeartbeatSucceeded", async () => {
-    isFailedAfterFirstSuccessConnection = false;
-    if (timerId) {
-      clearTimeout(timerId);
-      timerId = null;
-
-      dbConnectionRestored = true;
-      dbClient.db("admin").command({ killAllSessions: [] });
-
-      console.info("serverHeartbeatSucceeded\n", { dbReconnectionAttempts, dbConnectionRestored }, "\n");
-      dbReconnectionAttempts = 0;
-
-      console.info("---------- DB CONNECTED ----------\n");
-
-      serverEmitter.emit("start");
-    }
-  });
-
-  databaseEmitter.on("connection_error", async () => {
-    isFailedAfterFirstSuccessConnection = false;
+  dbInstance.connection.on("disconnected", async (e) => {
+    console.log("mongoose disconnected");
     if (!timerId) {
       serverEmitter.emit("close");
-      dbConnectionRestored = false;
 
       timerId = setInterval(async () => {
-        // console.clear();
-        console.info("into connection_error", { dbReconnectionAttempts });
+        console.log({ dbReconnectionAttempts });
+
         dbReconnectionAttempts++;
 
-        try {
-          await dbClient.connect();
-        } catch (e) {
-          if (e.message.startsWith("connect ECONNREFUSED")) {
-            clearInterval(timerId);
-            timerId = null;
-            databaseEmitter.emit("connection_error");
-          }
-        }
+        await dbInstance.connect(process.env.MONGO_URI, options);
       }, NEXT_CONNECTION_MS);
     }
   });
 
-  dbClient.on("open", async () => {
+  dbInstance.connection.on("connected", async () => {
+    console.log("connection to db...");
+
     if (timerId) {
+      dbReconnectionAttempts = 0;
+      dbConnectionRestored = true;
+
       clearTimeout(timerId);
       timerId = null;
+      console.log("mongoose reconnected");
+    }
 
-      dbConnectionRestored = true;
-      dbClient.db("admin").command({ killAllSessions: [] });
+    if (!dbConnectionRestored) {
+      console.log("mongoose connected\n");
+    }
+  });
 
-      console.info({ dbReconnectionAttempts, dbConnectionRestored }, "\n");
-      dbReconnectionAttempts = 0;
+  databaseEmitter.on("connection_error", async () => {
+    console.log("databaseEmitterError");
+    serverEmitter.emit("close");
 
-      console.info("---------- DB CONNECTED ----------\n");
-      serverEmitter.emit("start");
+    if (!timerId) {
+      timerId = setInterval(async () => {
+        console.log({ dbReconnectionAttempts });
+        dbReconnectionAttempts++;
+
+        await dbInstance.connect(process.env.MONGO_URI, options);
+      }, NEXT_CONNECTION_MS);
     }
   });
 };

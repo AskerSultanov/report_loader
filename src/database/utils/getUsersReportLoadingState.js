@@ -1,3 +1,5 @@
+import { reportLoadingStateModel } from "../models/index.js";
+
 var requredFields = {
   _id: 0,
   userId: 1,
@@ -11,6 +13,6 @@ var requredFields = {
   lastReportRequestTimestamp: 1,
 };
 
-var getUsersData = async (collection) => await collection.find({}, { projection: requredFields }).toArray();
+var getUsersReportLoadingState = async () => await reportLoadingStateModel.find({}, { ...requredFields });
 
-export default getUsersData;
+export default getUsersReportLoadingState;

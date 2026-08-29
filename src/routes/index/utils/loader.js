@@ -1,3 +1,4 @@
+import parseJwt from "./parseJwt.js";
 import checkTokenExpiry from "./checkTokenExpiry.js";
 import { dbClient } from "../../../database/index.js";
 import dbUtils from "../../../database/utils/index.js";
@@ -29,14 +30,14 @@ var loader = async (userId, isServerStartupLoad = false) => {
   while (true) {
     var session = await dbClient.startSession();
 
-    if (isFirstIterationOfLoop) {
-      var loadingStatus = "loading";
-      isFirstIterationOfLoop = false;
-      await dbUtils.setLoadingProgressStatus(userId, loadingStatus, session);
-    }
-
     try {
       await session.withTransaction(async () => {
+        if (isFirstIterationOfLoop) {
+          var loadingStatus = "loading";
+          isFirstIterationOfLoop = false;
+          await dbUtils.setLoadingProgressStatus(userId, loadingStatus, session);
+        }
+
         var { token } = await dbUtils.getToken(userId, session);
 
         if (!token) {
@@ -44,14 +45,15 @@ var loader = async (userId, isServerStartupLoad = false) => {
           loadingStopReason = "isTokenMissing";
           await dbUtils.updateReportLoadingStoppedStatus(userId, statusOfReportLoadingStop, loadingStopReason, session);
         } else {
-          tokenIsExpired = checkTokenExpiry(token);
+          var tokenPayload = parseJwt(token);
+          tokenIsExpired = checkTokenExpiry(tokenPayload);
 
           if (tokenIsExpired) {
             loadingStopReason = "tokenIsExpired";
             await dbUtils.updateReportLoadingStoppedStatus(userId, statusOfReportLoadingStop, loadingStopReason, session);
           } else {
             var { report, queueLength, lastReportRequestTimestamp } = await dbUtils.getReportsQueue(userId, session);
-
+            console.log({ queueLength });
             if (!report || queueLength < 1) {
               queueIsEmpty = true;
             } else {
@@ -59,22 +61,21 @@ var loader = async (userId, isServerStartupLoad = false) => {
                 queueIsEmpty = true;
               }
 
-              var { dateFrom, dateTo, index } = report;
-
               try {
                 var { needToDalay, delayInMs } = isLastRequestTooRecent(lastReportRequestTimestamp, NEXT_REPORT_DELAY_MS);
-                console.log({ needToDalay, delayInMs });
+
                 if (needToDalay) {
                   await nextReportDelay(delayInMs);
                 }
 
+                console.log({ report });
+                var { dateFrom, dateTo } = report;
                 var { lastLoadedReport, reportPeriodIsEmpty } = await reportsProcessing(userId, dateFrom, dateTo, token, session);
-
+                console.log({ lastLoadedReport, reportPeriodIsEmpty });
                 if (!reportPeriodIsEmpty) {
-                  lastLoadedReport.periodIndex = index;
-                  await dbUtils.updateLastLoaderReport(userId, lastLoadedReport, session);
+                  await dbUtils.updateLastLoadedReport(userId, lastLoadedReport, session);
                 } else {
-                  await dbUtils.addReportToEmptyReportPeriods(userId, index, dateFrom, dateTo, session);
+                  await dbUtils.addReportToEmptyReportPeriods(userId, dateFrom, dateTo, session);
                 }
               } catch (processingError) {
                 console.log({ processingError });
@@ -107,8 +108,10 @@ var loader = async (userId, isServerStartupLoad = false) => {
 
       console.error({ loadingError: err });
     } finally {
-      if (session?.inTransaction()) {
-        await session.endSession();
+      if (session) {
+        if (session.inTransaction()) {
+          await session.endSession();
+        }
       }
     }
 

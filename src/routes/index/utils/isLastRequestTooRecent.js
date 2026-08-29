@@ -1,4 +1,4 @@
-var mskTimeOffsetInMs = 3 * 60 * 60 * 1000;
+var mskTimeOffsetInMs = 10_800_000;
 
 var isLastRequestTooRecent = (lastReportRequestTimestamp, NEXT_REPORT_DELAY_MS) => {
   var delayInMs = 0;

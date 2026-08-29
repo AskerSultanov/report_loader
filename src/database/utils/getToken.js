@@ -1,6 +1,8 @@
-var getToken = async (collection, userId, session) => {
+import { tokenModel } from "../models/index.js";
+
+var getToken = async (userId, session) => {
   var sessionOpt = session ? { session } : {};
-  var { token } = await collection.findOne({ userId }, { ...sessionOpt });
+  var { token } = await tokenModel.findOne({ userId }, null, { ...sessionOpt });
   return { token };
 };
 

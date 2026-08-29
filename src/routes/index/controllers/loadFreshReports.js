@@ -1,3 +1,4 @@
+import parseJwt from "../utils/parseJwt.js";
 import isFutureDate from "../utils/isFutureDate.js";
 import { dbClient } from "../../../database/index.js";
 import dbUtils from "../../../database/utils/index.js";
@@ -17,25 +18,23 @@ var WB_API_REQUEST_INTERVAL_MS = 65_000;
 var nextReportDelay = async (delayMs) => new Promise((res) => setTimeout(res, delayMs));
 
 var loadFreshReports = async (req, res, next) => {
-  var users = await dbUtils.getUsersData();
+  var usersReportLoadingState = await dbUtils.getUsersReportLoadingState();
 
-  if (!users.length) {
+  if (!usersReportLoadingState.length) {
     return res.sendStatus(200);
   }
 
   console.log("FRESH_REPORTS_LOADING_STARTED", "\nTIME: " + new Date(Date.now() + mskTimeOffsetInMs));
 
-  var queueIsEmpty = false;
-
-  users.forEach((user) => (user.failedCount = 0));
+  usersReportLoadingState.forEach((user) => (user.failedCount = 0));
 
   res.sendStatus(202);
 
   while (true) {
-    var user = users.shift();
+    var user = usersReportLoadingState.shift();
     var { userId } = user;
 
-    var session = dbClient.startSession();
+    var session = await dbClient.startSession();
 
     try {
       await session.withTransaction(async () => {
@@ -45,7 +44,8 @@ var loadFreshReports = async (req, res, next) => {
           var loadingStopReason = "isTokenMissing";
           await dbUtils.updateReportLoadingStoppedStatus(userId, statusOfReportLoadingStop, loadingStopReason, session);
         } else {
-          var tokenIsExpired = checkTokenExpiry(token);
+          var tokenPayload = parseJwt(token);
+          var tokenIsExpired = checkTokenExpiry(tokenPayload);
 
           if (tokenIsExpired) {
             var loadingStopReason = "tokenIsExpired";
@@ -94,7 +94,7 @@ var loadFreshReports = async (req, res, next) => {
                   if (processingError instanceof WBAPIError) {
                     if (user.failedCount !== MAX_FAILED_ATTEMPTS) {
                       user.failedCount += 1;
-                      users.push(user);
+                      usersReportLoadingState.push(user);
                     }
                   } else {
                     throw processingError;
@@ -117,7 +117,7 @@ var loadFreshReports = async (req, res, next) => {
       }
     }
 
-    if (!users.length) {
+    if (!usersReportLoadingState.length) {
       console.log("FRESH_REPORTS_LOADING_COMPLETED", "\nTIME: " + new Date(Date.now() + mskTimeOffsetInMs));
       break;
     }
