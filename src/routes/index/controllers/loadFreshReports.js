@@ -51,7 +51,8 @@ var loadFreshReports = async (req, res, next) => {
             var loadingStopReason = "tokenIsExpired";
             await dbUtils.updateReportLoadingStoppedStatus(userId, statusOfReportLoadingStop, loadingStopReason, session);
           } else {
-            var { reportTree } = await dbUtils.getReportsTree(userId, session);
+            var savedReportPeriodsFromDb = (await dbUtils.getReportPeriods(userId, session)).reportPeriods;
+
             var freshReportPeriodIndex = user?.freshReportPeriodIndex;
 
             if (freshReportPeriodIndexIsInvalid(freshReportPeriodIndex)) {
@@ -68,7 +69,7 @@ var loadFreshReports = async (req, res, next) => {
               nextReportPeriodIndex = freshReportPeriodIndex;
             }
 
-            var { filteredRequiredReportPeriods } = filteringOfRequiredReportPeriods(user, [reportPeriodToLoad], reportTree);
+            var { filteredRequiredReportPeriods } = filteringOfRequiredReportPeriods(user, [reportPeriodToLoad], savedReportPeriodsFromDb);
 
             if (filteredRequiredReportPeriods.length) {
               if (!user.loadingInProgress || !user.isReportLoadingDelayed) {

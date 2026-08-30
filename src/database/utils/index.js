@@ -1,11 +1,10 @@
 import getUser from "./getUser.js";
 import getToken from "./getToken.js";
-import getReportsTree from "./getReportsTree.js";
 import saveReportToDb from "./saveReportToDb.js";
 import saveNewSkusToDb from "./saveNewSkusToDb.js";
 import addNewTaxYearToDb from "./addNewTaxYear.js";
 import getReportsQueue from "./getReportsQueue.js";
-import updateReportTree from "./updateReportTree.js";
+import getReportPeriods from "./getReportPeriods.js";
 import saveListGoodsToDb from "./saveListGoodsToDb.js";
 import getListGoodsFromDb from "./getListGoodsFromDb.js";
 import pushToReportsQueue from "./pushToReportsQueue.js";
@@ -14,6 +13,7 @@ import updateTaxParamsToDb from "./updateTaxParamsToDb.js";
 import resetAbandonedReports from "./resetAbandonedReports.js";
 import getReportLoadingState from "./getReportLoadingState.js";
 import updateLastLoadedReport from "./updateLastLoadedReport.js";
+import addReportToReportPeriods from "./addReportToReportPeriods.js";
 import getLoadingProgressStatus from "./getLoadingProgressStatus.js";
 import setLoadingProgressStatus from "./setLoadingProgressStatus.js";
 import updateReportLoadingFields from "./updateReportLoadingFields.js";
@@ -32,12 +32,11 @@ import updateReportLoadingStoppedStatus from "./updateReportLoadingStoppedStatus
 export default {
   getUser,
   getToken,
-  getReportsTree,
   saveReportToDb,
   saveNewSkusToDb,
   addNewTaxYearToDb,
   getReportsQueue,
-  updateReportTree,
+  getReportPeriods,
   saveListGoodsToDb,
   getListGoodsFromDb,
   pushToReportsQueue,
@@ -47,6 +46,7 @@ export default {
   getReportLoadingState,
   updateLastLoadedReport,
   setLoadingProgressStatus,
+  addReportToReportPeriods,
   getLoadingProgressStatus,
   getFreshReportPeriodIndex,
   updateReportLoadingFields,

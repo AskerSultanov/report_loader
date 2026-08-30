@@ -31,12 +31,12 @@ var periodsFilter = async (req, res, next) => {
 
   var userLoadingsState = await dbUtils.getReportLoadingState(userId);
 
-  var { reportTree } = await dbUtils.getReportsTree(userId);
+  var savedReportPeriodsFromDb = (await dbUtils.getReportPeriods(userId)).reportPeriods;
 
   var { filteredRequiredReportPeriods, abandonedReportsAddedToQueue } = filteringOfRequiredReportPeriods(
     userLoadingsState,
     requiredReportPeriods,
-    reportTree,
+    savedReportPeriodsFromDb,
   );
 
   if (!filteredRequiredReportPeriods.length) {

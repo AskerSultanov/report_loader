@@ -1,11 +1,11 @@
 import wbapi from "./WBAPI/index.js";
-import sortYearsTree from "./sortYearTree.js";
 import dbUtils from "../../../database/utils/index.js";
 import processReportSkus from "./reportParsing/index.js";
 import getNewSkusToListGoods from "./getNewSkusToListGoods.js";
-import insertReportToReportTree from "./reportTreeBuilder/index.js";
+import getReportTargetYearAndMonth from "./getReportTargetYearAndMonth.js";
 
 var selectedFields = ["listGoods.id", "listGoods.skuName"];
+var monthList = ["январь", "февраль", "марта", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"];
 
 var reportsProcessing = async (userId, dateFrom, dateTo, token, session) => {
   var lastLoadedReport = {};
@@ -13,7 +13,6 @@ var reportsProcessing = async (userId, dateFrom, dateTo, token, session) => {
   var endYear = +dateTo.split("-")[0];
   var isCrossYearPeriod = startYear !== endYear;
 
-  var { reportTree } = await dbUtils.getReportsTree(userId, session);
   var { reports, reportPeriodIsEmpty } = await wbapi.getReports(userId, dateFrom, dateTo, token);
 
   if (reportPeriodIsEmpty) {
@@ -23,13 +22,10 @@ var reportsProcessing = async (userId, dateFrom, dateTo, token, session) => {
   await dbUtils.updateWBTokenLastUsedTimestamp(userId, session);
   await dbUtils.updateLastReportRequestTimestamp(userId, session);
 
-  var { reportId } = reports.weeklyFinancialReport[0];
-
-  var { years, year, month } = insertReportToReportTree(dateFrom, dateTo, reportId, reportTree);
-  var sortedYears = sortYearsTree(years);
-
   var reportSkus = [];
   var updatedTaxParams = [];
+  var { reportId } = reports.weeklyFinancialReport[0];
+  var { targetYear, targetMonthIndex } = getReportTargetYearAndMonth(dateFrom, dateTo);
 
   for (var currentYear = startYear; currentYear <= endYear; currentYear++) {
     var taxParams = await dbUtils.addNewTaxYearToDb(userId, currentYear, session);
@@ -46,12 +42,14 @@ var reportsProcessing = async (userId, dateFrom, dateTo, token, session) => {
   report.userId = userId;
   report.dateFrom = dateFrom;
   report.reportId = reportId;
-  report.recordedTo = { year, month };
   report.reportIsEmpty = !report.skus.length;
   report.isCrossYearPeriod = isCrossYearPeriod;
+  report.recordedTo = { year: targetYear, month: monthList[targetMonthIndex] };
+
+  var newReportPeriod = { reportId, dateFrom, dateTo, year: targetYear, monthIndex: targetMonthIndex, monthName: monthList[targetMonthIndex] };
 
   await dbUtils.saveReportToDb(report, session);
-  await dbUtils.updateReportTree(userId, sortedYears, session);
+  await dbUtils.addReportToReportPeriods(userId, newReportPeriod, session);
 
   if (report.skus.length) {
     await dbUtils.updateTaxParamsToDb(userId, updatedTaxParams, session);
@@ -71,7 +69,7 @@ var reportsProcessing = async (userId, dateFrom, dateTo, token, session) => {
     }
   }
 
-  lastLoadedReport = { reportId, year, month, dateFrom, dateTo };
+  lastLoadedReport = { reportId, dateFrom, dateTo, month: monthList[targetMonthIndex], year: targetYear };
 
   return { lastLoadedReport, reportPeriodIsEmpty: report.reportIsEmpty };
 };

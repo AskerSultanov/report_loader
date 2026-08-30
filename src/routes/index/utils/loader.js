@@ -24,7 +24,7 @@ var loader = async (userId, isServerStartupLoad = false) => {
 
   if (isServerStartupLoad) {
     console.log("\n--- SERVER STARTUP DELAY ---\n");
-    await nextReportDelay();
+    // await nextReportDelay();
   }
 
   while (true) {
@@ -53,7 +53,7 @@ var loader = async (userId, isServerStartupLoad = false) => {
             await dbUtils.updateReportLoadingStoppedStatus(userId, statusOfReportLoadingStop, loadingStopReason, session);
           } else {
             var { report, queueLength, lastReportRequestTimestamp } = await dbUtils.getReportsQueue(userId, session);
-            console.log({ queueLength });
+
             if (!report || queueLength < 1) {
               queueIsEmpty = true;
             } else {
@@ -71,7 +71,7 @@ var loader = async (userId, isServerStartupLoad = false) => {
                 console.log({ report });
                 var { dateFrom, dateTo } = report;
                 var { lastLoadedReport, reportPeriodIsEmpty } = await reportsProcessing(userId, dateFrom, dateTo, token, session);
-                console.log({ lastLoadedReport, reportPeriodIsEmpty });
+
                 if (!reportPeriodIsEmpty) {
                   await dbUtils.updateLastLoadedReport(userId, lastLoadedReport, session);
                 } else {
