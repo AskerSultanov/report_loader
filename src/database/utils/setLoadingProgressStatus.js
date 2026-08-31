@@ -1,7 +1,5 @@
 import { reportLoadingStateModel } from "../models/index.js";
 
-var mskTimeOffsetInMs = 10_800_000;
-
 var setLoadingProgressStatus = async (userId, loadingStatus, session) => {
   var sessionOptions = session ? { session } : {};
 
@@ -11,11 +9,7 @@ var setLoadingProgressStatus = async (userId, loadingStatus, session) => {
       .then(() => console.log("LOADING STARTED FOR USER: " + userId));
   } else {
     await reportLoadingStateModel
-      .updateOne(
-        { userId },
-        { $set: { loadingInProgress: false, queueCapacity: 0, lastReportRequestTimestamp: Date.now() + mskTimeOffsetInMs } },
-        { ...sessionOptions },
-      )
+      .updateOne({ userId }, { $set: { loadingInProgress: false, queueCapacity: 0, lastReportRequestTimestamp: Date.now() } }, { ...sessionOptions })
       .then(() => console.log("LOADING COMPLETED FOR USER: " + userId));
   }
 };

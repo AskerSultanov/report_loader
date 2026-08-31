@@ -12,7 +12,7 @@ import filteringOfRequiredReportPeriods from "../utils/filteringOfRequiredReport
 import { getLastMondayFromCurrentMonth } from "../../../dateUtils/getLastMondayFromCurrentMonth.js";
 
 var MAX_FAILED_ATTEMPTS = 5;
-var mskTimeOffsetInMs = 10_800_000;
+
 var statusOfReportLoadingStop = true;
 var WB_API_REQUEST_INTERVAL_MS = 65_000;
 var nextReportDelay = async (delayMs) => new Promise((res) => setTimeout(res, delayMs));
@@ -24,7 +24,7 @@ var loadFreshReports = async (req, res, next) => {
     return res.sendStatus(200);
   }
 
-  console.log("FRESH_REPORTS_LOADING_STARTED", "\nTIME: " + new Date(Date.now() + mskTimeOffsetInMs));
+  console.log("FRESH_REPORTS_LOADING_STARTED", "\nTIME: " + new Date());
 
   usersReportLoadingState.forEach((user) => (user.failedCount = 0));
 
@@ -45,9 +45,9 @@ var loadFreshReports = async (req, res, next) => {
           await dbUtils.updateReportLoadingStoppedStatus(userId, statusOfReportLoadingStop, loadingStopReason, session);
         } else {
           var tokenPayload = parseJwt(token);
-          var tokenIsExpired = checkTokenExpiry(tokenPayload);
+          var { isExpired } = checkTokenExpiry(tokenPayload);
 
-          if (tokenIsExpired) {
+          if (isExpired) {
             var loadingStopReason = "tokenIsExpired";
             await dbUtils.updateReportLoadingStoppedStatus(userId, statusOfReportLoadingStop, loadingStopReason, session);
           } else {
@@ -119,7 +119,7 @@ var loadFreshReports = async (req, res, next) => {
     }
 
     if (!usersReportLoadingState.length) {
-      console.log("FRESH_REPORTS_LOADING_COMPLETED", "\nTIME: " + new Date(Date.now() + mskTimeOffsetInMs));
+      console.log("FRESH_REPORTS_LOADING_COMPLETED", "\nTIME: " + new Date());
       break;
     }
   }

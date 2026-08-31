@@ -46,9 +46,9 @@ var loader = async (userId, isServerStartupLoad = false) => {
           await dbUtils.updateReportLoadingStoppedStatus(userId, statusOfReportLoadingStop, loadingStopReason, session);
         } else {
           var tokenPayload = parseJwt(token);
-          tokenIsExpired = checkTokenExpiry(tokenPayload);
+          var { isExpired } = checkTokenExpiry(tokenPayload);
 
-          if (tokenIsExpired) {
+          if (isExpired) {
             loadingStopReason = "tokenIsExpired";
             await dbUtils.updateReportLoadingStoppedStatus(userId, statusOfReportLoadingStop, loadingStopReason, session);
           } else {
