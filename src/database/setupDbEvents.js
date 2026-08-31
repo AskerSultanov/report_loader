@@ -1,72 +1,82 @@
+import getClientOptions from "./getClientOptions.js";
 import { serverEmitter, databaseEmitter } from "../customEvent/index.js";
 
-var timerId = null;
+var MAX_DELAY_MS = 60_000;
+var INITIAL_DELAY_MS = 1_000;
+
 var eventsConfigured = false;
-var dbReconnectionAttempts = 1;
-var NEXT_CONNECTION_MS = 2_000;
-var dbConnectionRestored = false;
+var isReconnecting = false;
+var reconnectAttempts = 0;
+var currentDelay = INITIAL_DELAY_MS;
+var reconnectTimer = null;
 
-var kmsProviders = { local: { key: process.env.MONGO_LOCAL_MASTER_KEY } };
-var extraOptions = { cryptSharedLibPath: process.env.MONGO_CRYPT_SHARED_PATH, cryptSharedLibRequired: true };
-
-var autoEncryption = { kmsProviders, extraOptions, keyVaultNamespace: process.env.KEY_VAULT_NAME_SPACE, bypassAutoEncryption: true };
-var options = { autoEncryption, connectTimeoutMS: 5000, ...JSON.parse(process.env.MONGO_AUTH_OPTIONS) };
-
-var setupDbEvents = async (dbInstance) => {
-  if (eventsConfigured) {
-    return;
+var clearReconnectTimer = () => {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
   }
+};
 
+var resetReconnectState = () => {
+  isReconnecting = false;
+  reconnectAttempts = 0;
+  currentDelay = INITIAL_DELAY_MS;
+  clearReconnectTimer();
+};
+
+var scheduleReconnect = (dbInstance) => {
+  if (isReconnecting) return;
+
+  isReconnecting = true;
+  serverEmitter.emit("close");
+
+  var tryConnect = async () => {
+    if (!isReconnecting) return;
+
+    reconnectAttempts += 1;
+
+    console.clear();
+    console.log({ attempt: reconnectAttempts });
+
+    try {
+      await dbInstance.connect(process.env.MONGO_URI, getClientOptions());
+    } catch (err) {
+      console.error("Reconnect attempt failed:", err?.message || err);
+
+      currentDelay = Math.min(currentDelay * 2, MAX_DELAY_MS);
+      console.log({ nextDelayMs: currentDelay });
+      reconnectTimer = setTimeout(tryConnect, currentDelay);
+    }
+  };
+
+  reconnectTimer = setTimeout(tryConnect, 300);
+};
+
+var setupDbEvents = (dbInstance) => {
+  if (eventsConfigured) return;
   eventsConfigured = true;
 
-  dbInstance.connection.on("error", (e) => {
-    dbInstance.disconnect();
+  dbInstance.connection.on("error", (err) => {
+    console.error("mongoose connection error:", err?.message || err);
   });
 
-  dbInstance.connection.on("disconnected", async (e) => {
+  dbInstance.connection.on("disconnected", () => {
     console.log("mongoose disconnected");
-    if (!timerId) {
-      serverEmitter.emit("close");
-
-      timerId = setInterval(async () => {
-        console.log({ dbReconnectionAttempts });
-
-        dbReconnectionAttempts++;
-
-        await dbInstance.connect(process.env.MONGO_URI, options);
-      }, NEXT_CONNECTION_MS);
-    }
+    scheduleReconnect(dbInstance);
   });
 
-  dbInstance.connection.on("connected", async () => {
-    console.log("connection to db...");
-
-    if (timerId) {
-      dbReconnectionAttempts = 0;
-      dbConnectionRestored = true;
-
-      clearTimeout(timerId);
-      timerId = null;
+  dbInstance.connection.on("connected", () => {
+    if (isReconnecting) {
       console.log("mongoose reconnected");
+    } else {
+      console.log("mongoose connected");
     }
-
-    if (!dbConnectionRestored) {
-      console.log("mongoose connected\n");
-    }
+    resetReconnectState();
   });
 
-  databaseEmitter.on("connection_error", async () => {
-    console.log("databaseEmitterError");
-    serverEmitter.emit("close");
-
-    if (!timerId) {
-      timerId = setInterval(async () => {
-        console.log({ dbReconnectionAttempts });
-        dbReconnectionAttempts++;
-
-        await dbInstance.connect(process.env.MONGO_URI, options);
-      }, NEXT_CONNECTION_MS);
-    }
+  databaseEmitter.on("connection_error", () => {
+    console.log("databaseEmitter: connection_error");
+    scheduleReconnect(dbInstance);
   });
 };
 
