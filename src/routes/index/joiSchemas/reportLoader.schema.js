@@ -2,12 +2,9 @@ import Joi from "joi";
 
 var schema = Joi.object({
   userId: Joi.string().required(),
-  nextRequestDelayMs: Joi.number(),
-  isPeriodWithinSameWeek: Joi.boolean(),
-  needsReportLoadingDelay: Joi.boolean(),
+  dateFrom: Joi.string().allow("").required(),
   dateTo: Joi.string().allow("").required(),
   needToLoadAllReports: Joi.boolean().required(),
-  dateFrom: Joi.string().allow("").required(),
 });
 
 export default schema;

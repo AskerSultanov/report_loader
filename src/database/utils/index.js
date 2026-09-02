@@ -25,7 +25,6 @@ import updateFreshReportPeriodIndex from "./updateFreshReportPeriodIndex.js";
 import getLastReportRequestTimestamp from "./getLastReportRequestTimestamp.js";
 import addReportToEmptyReportPeriods from "./addReportToEmptyReportPeriods.js";
 import updateWBTokenLastUsedTimestamp from "./updateWBTokenLastUsedTimestamp.js";
-import updateReportLoadingDelayStatus from "./updateReportLoadingDelayStatus.js";
 import updateLastReportRequestTimestamp from "./updateLastReportRequestTimestamp.js";
 import updateReportLoadingStoppedStatus from "./updateReportLoadingStoppedStatus.js";
 
@@ -57,7 +56,6 @@ export default {
   updateFreshReportPeriodIndex,
   getUsersReportLoadingState,
   getLastReportRequestTimestamp,
-  updateReportLoadingDelayStatus,
   updateLastReportRequestTimestamp,
   updateReportLoadingStoppedStatus,
 };

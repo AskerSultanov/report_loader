@@ -6,7 +6,6 @@ var requredFields = {
   reportsQueue: 1,
   abandonedReports: 1,
   loadingInProgress: 1,
-  isReportLoadingDelayed: 1,
   freshReportPeriodIndex: 1,
   isReportLoadingIsStopped: 1,
   emptyReportPeriodsIndexes: 1,

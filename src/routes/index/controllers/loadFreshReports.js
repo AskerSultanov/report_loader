@@ -72,7 +72,7 @@ var loadFreshReports = async (req, res, next) => {
             var { filteredRequiredReportPeriods } = filteringOfRequiredReportPeriods(user, [reportPeriodToLoad], savedReportPeriodsFromDb);
 
             if (filteredRequiredReportPeriods.length) {
-              if (!user.loadingInProgress || !user.isReportLoadingDelayed) {
+              if (!user.loadingInProgress) {
                 try {
                   var { dateFrom, dateTo } = reportPeriodToLoad;
 
