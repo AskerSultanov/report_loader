@@ -1,7 +1,5 @@
-import { reportLoaderConsumer } from "./reportLoaderConsumer.js";
+import { reportLoaderConsumer } from "./reportLoaderConsumers/index.js";
 
 export var initConsumers = () => {
   reportLoaderConsumer();
 };
-
-
