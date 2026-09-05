@@ -11,7 +11,10 @@ var MAX_FAILED_ATTEMPTS = 3;
 var NEXT_REPORT_DELAY_MS = 65_000;
 var statusOfReportLoadingStop = true;
 var queueLengthNeedsIncrement = true;
-var nextReportDelay = async (delayMs) => new Promise((res) => (delayMs ? setTimeout(res, delayMs) : setTimeout(res, NEXT_REPORT_DELAY_MS)));
+var nextReportDelay = async (delayMs) =>
+  new Promise((res) =>
+    delayMs ? setTimeout(res, delayMs) : setTimeout(res, NEXT_REPORT_DELAY_MS),
+  );
 
 var sessionOptions = { willRetryWrite: false, maxTimeMs: fiveMinInMs };
 
@@ -35,7 +38,11 @@ var loader = async (userId, isServerStartupLoad = false) => {
         if (isFirstIterationOfLoop) {
           var loadingStatus = "loading";
           isFirstIterationOfLoop = false;
-          await dbUtils.setLoadingProgressStatus(userId, loadingStatus, session);
+          await dbUtils.setLoadingProgressStatus(
+            userId,
+            loadingStatus,
+            session,
+          );
         }
 
         var { token } = await dbUtils.getToken(userId, session);
@@ -43,16 +50,27 @@ var loader = async (userId, isServerStartupLoad = false) => {
         if (!token) {
           isTokenMissing = true;
           loadingStopReason = "isTokenMissing";
-          await dbUtils.updateReportLoadingStoppedStatus(userId, statusOfReportLoadingStop, loadingStopReason, session);
+          await dbUtils.updateReportLoadingStoppedStatus(
+            userId,
+            statusOfReportLoadingStop,
+            loadingStopReason,
+            session,
+          );
         } else {
           var tokenPayload = parseJwt(token);
           var { isExpired } = checkTokenExpiry(tokenPayload);
 
           if (isExpired) {
             loadingStopReason = "tokenIsExpired";
-            await dbUtils.updateReportLoadingStoppedStatus(userId, statusOfReportLoadingStop, loadingStopReason, session);
+            await dbUtils.updateReportLoadingStoppedStatus(
+              userId,
+              statusOfReportLoadingStop,
+              loadingStopReason,
+              session,
+            );
           } else {
-            var { report, queueLength, lastReportRequestTimestamp } = await dbUtils.getReportsQueue(userId, session);
+            var { report, queueLength, lastReportRequestTimestamp } =
+              await dbUtils.getReportsQueue(userId, session);
 
             if (!report || queueLength < 1) {
               queueIsEmpty = true;
@@ -62,20 +80,39 @@ var loader = async (userId, isServerStartupLoad = false) => {
               }
 
               try {
-                var { needToDalay, delayInMs } = isLastRequestTooRecent(lastReportRequestTimestamp, NEXT_REPORT_DELAY_MS);
+                var { needToDelay, delayInMs } = isLastRequestTooRecent(
+                  lastReportRequestTimestamp,
+                  NEXT_REPORT_DELAY_MS,
+                );
 
-                if (needToDalay) {
+                if (needToDelay) {
                   await nextReportDelay(delayInMs);
                 }
 
                 console.log({ report });
                 var { dateFrom, dateTo } = report;
-                var { lastLoadedReport, reportPeriodIsEmpty } = await reportsProcessing(userId, dateFrom, dateTo, token, session);
+                var { lastLoadedReport, reportPeriodIsEmpty } =
+                  await reportsProcessing(
+                    userId,
+                    dateFrom,
+                    dateTo,
+                    token,
+                    session,
+                  );
 
                 if (!reportPeriodIsEmpty) {
-                  await dbUtils.updateLastLoadedReport(userId, lastLoadedReport, session);
+                  await dbUtils.updateLastLoadedReport(
+                    userId,
+                    lastLoadedReport,
+                    session,
+                  );
                 } else {
-                  await dbUtils.addReportToEmptyReportPeriods(userId, dateFrom, dateTo, session);
+                  await dbUtils.addReportToEmptyReportPeriods(
+                    userId,
+                    dateFrom,
+                    dateTo,
+                    session,
+                  );
                 }
               } catch (processingError) {
                 console.log({ processingError });
@@ -83,14 +120,28 @@ var loader = async (userId, isServerStartupLoad = false) => {
                 if (processingError instanceof WBAPIError) {
                   queueIsEmpty = false;
 
-                  await dbUtils.updateReportsQueue(userId, { ...report }, queueLengthNeedsIncrement, session);
+                  await dbUtils.updateReportsQueue(
+                    userId,
+                    { ...report },
+                    queueLengthNeedsIncrement,
+                    session,
+                  );
                 } else {
                   if (report.failedCount >= MAX_FAILED_ATTEMPTS) {
-                    await dbUtils.addReportToAbandonedReports(userId, report, session);
+                    await dbUtils.addReportToAbandonedReports(
+                      userId,
+                      report,
+                      session,
+                    );
                   } else {
                     queueIsEmpty = false;
                     var failedCount = report.failedCount + 1;
-                    await dbUtils.updateReportsQueue(userId, { ...report, failedCount }, queueLengthNeedsIncrement, session);
+                    await dbUtils.updateReportsQueue(
+                      userId,
+                      { ...report, failedCount },
+                      queueLengthNeedsIncrement,
+                      session,
+                    );
                   }
                 }
               }
@@ -100,7 +151,11 @@ var loader = async (userId, isServerStartupLoad = false) => {
 
         if (queueIsEmpty) {
           var loadingStatus = "completed";
-          await dbUtils.setLoadingProgressStatus(userId, loadingStatus, session);
+          await dbUtils.setLoadingProgressStatus(
+            userId,
+            loadingStatus,
+            session,
+          );
         }
       }, sessionOptions);
     } catch (err) {
