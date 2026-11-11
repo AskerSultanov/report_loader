@@ -25,3 +25,5 @@ var getReportTargetYearAndMonth = (dateFrom, dateTo) => {
 
   return { targetYear, targetMonthIndex };
 };
+
+export default getReportTargetYearAndMonth;
