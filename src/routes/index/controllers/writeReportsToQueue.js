@@ -1,12 +1,15 @@
 import dbUtils from "../../../database/utils/index.js";
 
+var { pushToReportsQueue, getUserReportLoadingState } =
+  dbUtils.reportLoadingStateModelUtils;
+
 var writeReportsToQueue = async (req, res, next) => {
   var { userId, filteredRequiredReportPeriods } = req.body;
 
-  await dbUtils.pushToReportsQueue(userId, filteredRequiredReportPeriods);
+  await pushToReportsQueue(userId, filteredRequiredReportPeriods);
 
   var { loadingInProgress, isReportLoadingIsStopped } =
-    await dbUtils.getUserReportLoadingState(userId);
+    await getUserReportLoadingState(userId);
 
   if (isReportLoadingIsStopped || loadingInProgress) {
     return;

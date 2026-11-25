@@ -16,6 +16,9 @@ var resumeStoppedRoutingKey = "resume";
 var abandonedReportLoadingRoutingKey = "abandoned";
 var longRangeReportLoadingRoutingKey = "longrange";
 
+var { addAbandonedReportsToQueue, updateReportLoadingStoppedStatus } =
+  dbUtils.reportLoadingStateModelUtils;
+
 export var reportLoaderConsumer = () =>
   channel.consume(
     queueName,
@@ -47,7 +50,7 @@ export var reportLoaderConsumer = () =>
               return channel.nack(msg, allUpTo, requeue);
             }
 
-            await dbUtils.addAbandonedReportsToQueue(data.userId);
+            await addAbandonedReportsToQueue(data.userId);
           } else if (routingKey === resumeStoppedRoutingKey) {
             var { error } = joiSchemas.resumeReportLoadingSchema.validate(data);
 
@@ -55,7 +58,11 @@ export var reportLoaderConsumer = () =>
               return channel.nack(msg, allUpTo, requeue);
             }
 
-            await dbUtils.updateReportLoadingStoppedStatus(userId, statusOfReportLoadingStop, loadingStopReason);
+            await updateReportLoadingStoppedStatus(
+              userId,
+              statusOfReportLoadingStop,
+              loadingStopReason,
+            );
           }
         });
 

@@ -21,6 +21,12 @@ var monthList = [
   "декабрь",
 ];
 
+var { createReport } = dbUtils.reportModelUtils;
+var { updateWBTokenLastUsedTimestamp } = dbUtils.wbTokenModelUtils;
+var { getListGoodsFromDb, saveNewSkusToDb } = dbUtils.goodsModelUtils;
+var { addNewUserTaxSetting, updateTaxSettings } = dbUtils.taxSettingModelUtils;
+var { updateLastReportRequestTimestamp } = dbUtils.reportLoadingStateModelUtils;
+
 var reportsProcessing = async (userId, dateFrom, dateTo, token, session) => {
   var lastLoadedReport = {};
   var startYear = +dateFrom.split("-")[0];
@@ -38,8 +44,8 @@ var reportsProcessing = async (userId, dateFrom, dateTo, token, session) => {
     return { lastLoadedReport, reportPeriodIsEmpty };
   }
 
-  await dbUtils.updateWBTokenLastUsedTimestamp(userId, session);
-  await dbUtils.updateLastReportRequestTimestamp(userId, session);
+  await updateWBTokenLastUsedTimestamp(userId, session);
+  await updateLastReportRequestTimestamp(userId, session);
 
   var reportSkus = [];
   var updatedTaxSettings = [];
@@ -49,12 +55,8 @@ var reportsProcessing = async (userId, dateFrom, dateTo, token, session) => {
     dateTo,
   );
 
-  for (var currentYear = startYear; currentYear <= endYear; currentYear++) {
-    var { taxSetting } = await dbUtils.addNewUserTaxSetting(
-      userId,
-      currentYear,
-      session,
-    );
+  for (var year = startYear; year <= endYear; year++) {
+    var { taxSetting } = await addNewUserTaxSetting(userId, year, session);
     var { skus, recalculatedTaxSettings } = await processReportSkus(
       reports,
       taxSetting,
@@ -63,10 +65,7 @@ var reportsProcessing = async (userId, dateFrom, dateTo, token, session) => {
 
     reportSkus.push(...skus);
 
-    updatedTaxSettings.push({
-      year: currentYear,
-      data: recalculatedTaxSettings,
-    });
+    updatedTaxSettings.push({ year, data: recalculatedTaxSettings });
   }
 
   if (!reportSkus.length) {
@@ -83,14 +82,14 @@ var reportsProcessing = async (userId, dateFrom, dateTo, token, session) => {
   basicReportData.monthIndex = targetMonthIndex;
   basicReportData.isCrossYearPeriod = isCrossYearPeriod;
 
-  await dbUtils.createReport(basicReportData, reportSkus, session);
+  await createReport(basicReportData, reportSkus, session);
 
   if (reportSkus.length) {
-    await dbUtils.updateTaxSettings(userId, updatedTaxSettings, session);
+    await updateTaxSettings(userId, updatedTaxSettings, session);
 
     var skuNames = reportSkus.map((sku) => sku.skuName);
 
-    var { listGoods } = await dbUtils.getListGoodsFromDb(
+    var { listGoods } = await getListGoodsFromDb(
       userId,
       skuNames,
       selectedFields,
@@ -104,7 +103,7 @@ var reportsProcessing = async (userId, dateFrom, dateTo, token, session) => {
     var { newSkus } = getNewSkusToListGoods(listGoods, skuNamesAndIds);
 
     if (newSkus.length) {
-      await dbUtils.saveNewSkusToDb(userId, newSkus, session);
+      await saveNewSkusToDb(userId, newSkus, session);
     }
   }
 

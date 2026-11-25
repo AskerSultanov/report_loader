@@ -18,8 +18,19 @@ var WB_API_REQUEST_INTERVAL_MS = 65_000;
 var nextReportDelay = async (delayMs) =>
   new Promise((res) => setTimeout(res, delayMs));
 
+var {
+  getUsersReportLoadingState,
+  addReportToEmptyReportPeriods,
+  updateFreshReportPeriodIndex,
+  updateReportLoadingStoppedStatus,
+  updateLastReportRequestTimestamp,
+} = dbUtils.reportLoadingStateModelUtils;
+
+var { getToken } = dbUtils.wbTokenModelUtils;
+var { getBasicReportsData } = dbUtils.reportModelUtils;
+
 var loadFreshReports = async (req, res, next) => {
-  var usersReportLoadingState = await dbUtils.getUsersReportLoadingState();
+  var usersReportLoadingState = await getUsersReportLoadingState();
 
   if (!usersReportLoadingState.length) {
     return res.sendStatus(200);
@@ -39,11 +50,12 @@ var loadFreshReports = async (req, res, next) => {
 
     try {
       await session.withTransaction(async () => {
-        var { token } = await dbUtils.getToken(userId, session);
+        var { token } = await getToken(userId, session);
 
         if (!token) {
           var loadingStopReason = "isTokenMissing";
-          await dbUtils.updateReportLoadingStoppedStatus(
+
+          await updateReportLoadingStoppedStatus(
             userId,
             statusOfReportLoadingStop,
             loadingStopReason,
@@ -56,14 +68,14 @@ var loadFreshReports = async (req, res, next) => {
           if (isExpired) {
             var loadingStopReason = "tokenIsExpired";
 
-            await dbUtils.updateReportLoadingStoppedStatus(
+            await updateReportLoadingStoppedStatus(
               userId,
               statusOfReportLoadingStop,
               loadingStopReason,
               session,
             );
           } else {
-            var { basicReportData } = await dbUtils.getBasicReportsData(
+            var { basicReportData } = await getBasicReportsData(
               userId,
               session,
             );
@@ -116,17 +128,15 @@ var loadFreshReports = async (req, res, next) => {
                   );
 
                   if (!reportPeriodIsEmpty) {
-                    await dbUtils.updateLastReportRequestTimestamp(
-                      userId,
-                      session,
-                    );
-                    await dbUtils.updateFreshReportPeriodIndex(
+                    await updateLastReportRequestTimestamp(userId, session);
+
+                    await updateFreshReportPeriodIndex(
                       userId,
                       nextReportPeriodIndex,
                       session,
                     );
                   } else {
-                    await dbUtils.addReportToEmptyReportPeriods(
+                    await addReportToEmptyReportPeriods(
                       userId,
                       freshReportPeriodIndex,
                       dateFrom,
@@ -147,14 +157,14 @@ var loadFreshReports = async (req, res, next) => {
                   }
                 }
               } else {
-                await dbUtils.pushToReportsQueue(
+                await pushToReportsQueue(
                   userId,
                   [reportPeriods[freshReportPeriodIndex]],
                   session,
                 );
               }
             } else {
-              await dbUtils.updateFreshReportPeriodIndex(
+              await updateFreshReportPeriodIndex(
                 userId,
                 nextReportPeriodIndex,
                 session,

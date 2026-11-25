@@ -19,6 +19,17 @@ var nextReportDelay = async (delayMs) =>
 
 var sessionOptions = { willRetryWrite: false, maxTimeMs: FIVE_MIN_IN_MS };
 
+var {
+  getReportsQueue,
+  updateReportsQueue,
+  updateLastLoadedReport,
+  setLoadingProgressStatus,
+  addReportToAbandonedReports,
+  addReportToEmptyReportPeriods,
+  updateReportLoadingStoppedStatus,
+} = dbUtils.reportLoadingStateModelUtils;
+var { getToken } = dbUtils.wbTokenModelUtils;
+
 var loader = async (userId, isServerStartupLoad = false) => {
   var queueIsEmpty = false;
   var tokenIsExpired = false;
@@ -27,7 +38,7 @@ var loader = async (userId, isServerStartupLoad = false) => {
   var isFirstIterationOfLoop = true;
 
   if (isServerStartupLoad) {
-   await nextReportDelay();
+    await nextReportDelay();
   }
 
   while (true) {
@@ -45,19 +56,16 @@ var loader = async (userId, isServerStartupLoad = false) => {
           loadingStatus = "loading";
           logger.info({ userId, loadingStatus });
 
-          await dbUtils.setLoadingProgressStatus(
-            userId,
-            loadingStatus,
-            session,
-          );
+          await setLoadingProgressStatus(userId, loadingStatus, session);
         }
 
-        var { token } = await dbUtils.getToken(userId, session);
+        var { token } = await getToken(userId, session);
 
         if (!token) {
           isTokenMissing = true;
           loadingStopReason = "isTokenMissing";
-          await dbUtils.updateReportLoadingStoppedStatus(
+
+          await updateReportLoadingStoppedStatus(
             userId,
             statusOfReportLoadingStop,
             loadingStopReason,
@@ -69,7 +77,8 @@ var loader = async (userId, isServerStartupLoad = false) => {
 
           if (tokenIsExpired) {
             loadingStopReason = "tokenIsExpired";
-            await dbUtils.updateReportLoadingStoppedStatus(
+
+            await updateReportLoadingStoppedStatus(
               userId,
               statusOfReportLoadingStop,
               loadingStopReason,
@@ -81,7 +90,7 @@ var loader = async (userId, isServerStartupLoad = false) => {
               queueLength,
               loadingInProgress,
               lastReportRequestTimestamp,
-            } = await dbUtils.getReportsQueue(userId, session);
+            } = await getReportsQueue(userId, session);
 
             if (!report || queueLength < 1 || !loadingInProgress) {
               queueIsEmpty = true;
@@ -113,13 +122,13 @@ var loader = async (userId, isServerStartupLoad = false) => {
                   );
 
                 if (!reportPeriodIsEmpty) {
-                  await dbUtils.updateLastLoadedReport(
+                  await updateLastLoadedReport(
                     userId,
                     lastLoadedReport,
                     session,
                   );
                 } else {
-                  await dbUtils.addReportToEmptyReportPeriods(
+                  await addReportToEmptyReportPeriods(
                     userId,
                     dateFrom,
                     dateTo,
@@ -132,7 +141,7 @@ var loader = async (userId, isServerStartupLoad = false) => {
                 if (err instanceof WBAPIError) {
                   queueIsEmpty = false;
 
-                  await dbUtils.updateReportsQueue(
+                  await updateReportsQueue(
                     userId,
                     { ...report },
                     queueLengthNeedsIncrement,
@@ -140,15 +149,12 @@ var loader = async (userId, isServerStartupLoad = false) => {
                   );
                 } else {
                   if (report.failedCount >= MAX_FAILED_ATTEMPTS) {
-                    await dbUtils.addReportToAbandonedReports(
-                      userId,
-                      report,
-                      session,
-                    );
+                    await addReportToAbandonedReports(userId, report, session);
                   } else {
                     queueIsEmpty = false;
                     var failedCount = report.failedCount + 1;
-                    await dbUtils.updateReportsQueue(
+
+                    await updateReportsQueue(
                       userId,
                       { ...report, failedCount },
                       queueLengthNeedsIncrement,
@@ -164,11 +170,7 @@ var loader = async (userId, isServerStartupLoad = false) => {
         if (queueIsEmpty) {
           loadingStatus = "completed";
 
-          await dbUtils.setLoadingProgressStatus(
-            userId,
-            loadingStatus,
-            session,
-          );
+          await setLoadingProgressStatus(userId, loadingStatus, session);
         }
       }, sessionOptions);
     } catch (err) {

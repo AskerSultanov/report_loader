@@ -4,10 +4,13 @@ import dbUtils from "../../../database/utils/index.js";
 var loadingStopReason = "";
 var statusOfReportLoadingStop = false;
 
+var { getUserReportLoadingState, updateReportLoadingStoppedStatus } =
+  dbUtils.reportLoadingStateModelUtils;
+
 var resumeReportLoading = async (req, res) => {
   var { userId } = req.body;
 
-  var user = await dbUtils.getUserReportLoadingState(userId);
+  var user = await getUserReportLoadingState(userId);
 
   res.sendStatus(202);
 
@@ -15,7 +18,7 @@ var resumeReportLoading = async (req, res) => {
     return;
   }
 
-  await dbUtils.updateReportLoadingStoppedStatus(
+  await updateReportLoadingStoppedStatus(
     userId,
     statusOfReportLoadingStop,
     loadingStopReason,

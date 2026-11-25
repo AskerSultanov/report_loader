@@ -3,6 +3,10 @@ import reportPeriods from "../../../dateUtils/reportPeriods.js";
 import filteringOfRequiredReportPeriods from "../utils/filteringOfRequiredReportPeriods.js";
 import { getLastMondayFromCurrentMonth } from "../../../dateUtils/getLastMondayFromCurrentMonth.js";
 
+var { getBasicReportsData } = dbUtils.reportModelUtils;
+var { getUserReportLoadingState, resetAbandonedReports } =
+  dbUtils.reportLoadingStateModelUtils;
+
 var periodsFilter = async (req, res, next) => {
   var { userId, dateFrom, dateTo, needToLoadAllReports } = req.body;
 
@@ -44,9 +48,8 @@ var periodsFilter = async (req, res, next) => {
     dateToIndex + 1,
   );
 
-  var userLoadingsState = await dbUtils.getUserReportLoadingState(userId);
-
-  var { basicReportData } = await dbUtils.getBasicReportsData(userId);
+  var { basicReportData } = await getBasicReportsData(userId);
+  var userLoadingsState = await getUserReportLoadingState(userId);
 
   var { filteredRequiredReportPeriods, abandonedReportsAddedToQueue } =
     filteringOfRequiredReportPeriods(
@@ -60,7 +63,7 @@ var periodsFilter = async (req, res, next) => {
   }
 
   if (abandonedReportsAddedToQueue) {
-    await dbUtils.resetAbandonedReports(userId);
+    await resetAbandonedReports(userId);
   }
 
   req.body.filteredRequiredReportPeriods = filteredRequiredReportPeriods;
